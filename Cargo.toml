@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket = "0.5.0-rc.2" 
+rocket = { version =  "0.5.0-rc.2", features = ["json"] } 
 reqwest = { version = "0.11.10", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
@@ -15,6 +15,8 @@ near-jsonrpc-client = { version = "0.3.0", features = ["any"] }
 near-jsonrpc-primitives = "0.12.0"
 near-primitives = "0.12.0"
 env_logger = "0.9.0"
+redis = { version = "0.21.5", features = ["tls"] }
+rand = "0.8.1"
 
 [toolchain]
 channel = "nightly"
