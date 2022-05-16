@@ -1,41 +1,24 @@
 #[macro_use]
 extern crate rocket;
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::env;
 
 use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::{BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
 
+use derive_redis_json::RedisJsonValue;
 use rocket::serde::json::{json, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::from_slice;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TokenInfo {
-    decimal: u8,
-    price: String,
-    symbol: String,
-}
+mod models;
+mod routes;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FarmInfo {
-    farm_id: String,
-    farm_kind: String,
-    farm_status: String,
-    seed_id: String,
-    reward_token: String,
-    start_at: u64,
-    reward_per_session: String,
-    session_interval: u64,
-    total_reward: String,
-    cur_round: u64,
-    last_round: u64,
-    claimed_reward: String,
-    unclaimed_reward: String,
-    beneficiary_reward: String,
-}
+use models::FarmInfo;
 
 async fn contract_version() -> Result<String, Box<dyn std::error::Error>> {
     let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
@@ -60,20 +43,6 @@ async fn contract_version() -> Result<String, Box<dyn std::error::Error>> {
     }
 
     Ok(res)
-}
-
-#[get("/contract-version")]
-pub async fn get_contract_version() -> String {
-    let res = contract_version().await;
-
-    let mut value: String = String::from("Failed");
-
-    match res {
-        Ok(x) => value = x,
-        _ => println!("Error"),
-    }
-
-    value
 }
 
 async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -110,20 +79,6 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
     Ok(res)
 }
 
-#[get("/list-seeds")]
-pub async fn list_seeds() -> Json<HashMap<String, String>> {
-    let val = get_seeds().await;
-
-    let mut value: HashMap<String, String> = HashMap::new();
-
-    match val {
-        Ok(x) => value = x,
-        _ => println!("Error!"),
-    }
-
-    Json(value)
-}
-
 async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
     let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
 
@@ -152,6 +107,7 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
 
     if let QueryResponseKind::CallResult(result) = response.kind {
         seeds = from_slice::<HashMap<String, String>>(&result.result)?;
+        println!("{:#?}", seeds);
     }
 
     assert!(seeds.len() > 0, "ERR_FETCHING_SEEDS");
@@ -197,21 +153,51 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
     Ok(farms)
 }
 
-#[get("/list-farms")]
-pub async fn list_farms() -> Json<Vec<FarmInfo>> {
-    let result = get_farms().await;
+fn connect() -> redis::Connection {
+    //format - host:port
+    let redis_host_name =
+        env::var("REDIS_HOSTNAME").expect("missing environment variable REDIS_HOSTNAME");
+    let redis_password = env::var("REDIS_PASSWORD").unwrap_or_default();
 
-    let mut farms: Vec<FarmInfo> = Vec::new();
+    //if Redis server needs secure connection
+    let uri_scheme = match env::var("IS_TLS") {
+        Ok(_) => "rediss",
+        Err(_) => "redis",
+    };
 
-    match result {
-        Ok(x) => farms = x,
-        _ => println!("Error!"),
-    }
+    let redis_conn_url = format!("{}://:{}@{}", uri_scheme, redis_password, redis_host_name);
+    println!("{}", redis_conn_url);
 
-    Json(farms)
+    redis::Client::open(redis_conn_url)
+        .expect("Invalid connection URL")
+        .get_connection()
+        .expect("failed to connect to Redis")
+}
+
+pub fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
+    let mut conn = connect();
+
+    println!("******* Running HASH::HSET commands *******");
+
+    let prefix = "redis-driver";
+
+    let _: () = redis::cmd("HSET")
+        .arg(format!("{}:{}", prefix, "rust"))
+        .arg(driver)
+        .query(&mut conn)
+        .expect("failed to execute HSET");
 }
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![get_contract_version, list_seeds, list_farms])
+    rocket::build().mount(
+        "/",
+        routes![
+            routes::get_contract_version,
+            routes::list_seeds,
+            routes::list_farms,
+            routes::update_farms,
+            routes::get_redis_farms_
+        ],
+    )
 }

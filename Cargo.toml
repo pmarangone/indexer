@@ -17,6 +17,7 @@ near-primitives = "0.12.0"
 env_logger = "0.9.0"
 redis = { version = "0.21.5", features = ["tls"] }
 rand = "0.8.1"
+derive-redis-json = "0.1.1"
 
 [toolchain]
 channel = "nightly"
