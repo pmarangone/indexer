@@ -87,6 +87,7 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
 }
 
 async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
+    // TODO: get number of seeds, then get all seeds
     let args = FunctionArgs::from(
         json!({
             "from_index": 0u64,
@@ -124,12 +125,7 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
             let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
             // TODO: refactor in preference of collect
             for farm in res {
-                let status = farm.farm_status.clone();
-                let running: String = String::from("Running");
-
-                if status == running {
-                    farms.push(farm);
-                }
+                farms.push(farm);
             }
         }
     }
@@ -195,7 +191,38 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
             pools.append(&mut batch_pools);
         }
     }
+    /*
+        query whitelisted_tokens
+        update token metadata on redis
+        impl get_token_metadata
+
+    */
+
+    // for pool in pools.iter_mut() {
+    //     if true {
+    //         pool.farming = Some(true);
+    //     }
+    // }
+
     Ok(pools)
+}
+
+pub async fn internal_farm_seeds() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let farms = get_redis_farms().await;
+    let mut seeds: Vec<String> = Vec::new();
+
+    for (_, farm) in farms.iter() {
+        let status = &farm.farm_status;
+        let total_reward: u128 = farm.total_reward.parse::<u128>().unwrap();
+        let claimed_reward: u128 = farm.claimed_reward.parse::<u128>().unwrap();
+        let unclaimed_reward: u128 = farm.unclaimed_reward.parse::<u128>().unwrap();
+
+        if *status == "Running".to_string() && total_reward > claimed_reward + unclaimed_reward {
+            seeds.push(farm.seed_id.clone());
+        }
+    }
+
+    Ok(seeds)
 }
 
 #[launch]
@@ -204,6 +231,7 @@ fn rocket() -> _ {
         "/",
         routes![
             routes::get_contract_version,
+            routes::init_redis,
             routes::list_seeds,
             routes::list_farms,
             routes::list_pools,

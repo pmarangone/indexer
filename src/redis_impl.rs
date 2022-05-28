@@ -43,7 +43,7 @@ pub async fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
 }
 
 // Store all farms with Running state
-pub async fn update_farms() -> String {
+pub async fn update_farms() {
     let result = get_farms().await;
 
     let mut farms: Vec<FarmInfo> = Vec::new();
@@ -60,6 +60,19 @@ pub async fn update_farms() -> String {
     }
 
     redis_update_farms(driver);
+}
 
-    String::from("Hello world")
+pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {
+    let mut conn = connect();
+
+    println!("******* Running HASH::HGETALL commands *******");
+
+    let prefix = "redis-driver";
+
+    let info: BTreeMap<String, FarmInfo> = redis::cmd("HGETALL")
+        .arg(format!("{}:{}", prefix, "rust"))
+        .query(&mut conn)
+        .expect("failed to execute HGETALL");
+
+    Json(info)
 }

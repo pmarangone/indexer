@@ -42,22 +42,6 @@ pub async fn list_farms() -> Json<Vec<FarmInfo>> {
     Json(farms)
 }
 
-// #[get("/redis-get-farms")]
-pub async fn get_redis_farms_() -> Json<BTreeMap<String, FarmInfo>> {
-    let mut conn = connect();
-
-    println!("******* Running HASH::HGETALL commands *******");
-
-    let prefix = "redis-driver";
-
-    let info: BTreeMap<String, FarmInfo> = redis::cmd("HGETALL")
-        .arg(format!("{}:{}", prefix, "rust"))
-        .query(&mut conn)
-        .expect("failed to execute HGETALL");
-
-    Json(info)
-}
-
 #[get("/list-pools")]
 pub async fn list_pools() -> Json<Vec<PoolInfo>> {
     let result = get_pools().await;
@@ -73,5 +57,7 @@ pub async fn list_pools() -> Json<Vec<PoolInfo>> {
 }
 
 // TODO: the following method should call every function that create/update redis state
-// #[get("/init-redis")]
-// pub async fn init_redis () {}
+#[get("/init-redis")]
+pub async fn init_redis() {
+    update_farms().await;
+}

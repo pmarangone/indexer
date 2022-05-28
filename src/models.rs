@@ -38,6 +38,8 @@ pub struct PoolInfo {
     /// Total number of shares.
     pub shares_total_supply: String,
     pub amp: u64,
+    pub farming: Option<bool>,
+    pub token_symbols: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, RedisJsonValue)]
