@@ -11,6 +11,7 @@ use near_primitives::types::{BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
 
 use derive_redis_json::RedisJsonValue;
+use redis::Commands;
 use rocket::serde::json::{json, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::from_slice;
@@ -101,7 +102,6 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
 
     if let QueryResponseKind::CallResult(result) = response.kind {
         seeds = from_slice::<HashMap<String, String>>(&result.result)?;
-        println!("{:#?}", seeds);
     }
 
     // TODO: improve error handling
@@ -167,31 +167,33 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
 
     let method_name = Methods::NumPools.value();
 
-    // todo: move function args to call_view
     let args = FunctionArgs::from(json!({}).to_string().into_bytes());
     let response = call_view(exchange_id, method_name, args).await?;
 
-    let mut res: u64 = 0;
+    let mut num_pools: u64 = 0;
     if let QueryResponseKind::CallResult(result) = response.kind {
-        res = from_slice::<u64>(&result.result)?;
+        num_pools = from_slice::<u64>(&result.result)?;
     }
 
     let mut base_index = 0;
-    // todo: move function args to call_view
-    let args = FunctionArgs::from(
-        json!({
-            "from_index": 0u64,
-            "limit": 200u64
-        })
-        .to_string()
-        .into_bytes(),
-    );
+    while base_index < num_pools {
+        let args = FunctionArgs::from(
+            json!({
+                "from_index": base_index,
+                "limit": 200u64
+            })
+            .to_string()
+            .into_bytes(),
+        );
 
-    let response = call_view(exchange_id, Methods::GetPools.value(), args).await?;
-    let mut pools: Vec<PoolInfo> = Vec::new();
+        let response = call_view(exchange_id, Methods::GetPools.value(), args).await?;
 
-    if let QueryResponseKind::CallResult(result) = response.kind {
-        pools = from_slice::<Vec<PoolInfo>>(&result.result)?;
+        if let QueryResponseKind::CallResult(result) = response.kind {
+            let mut batch_pools = from_slice::<Vec<PoolInfo>>(&result.result)?;
+            base_index += batch_pools.len() as u64;
+
+            pools.append(&mut batch_pools);
+        }
     }
     Ok(pools)
 }
