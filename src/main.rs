@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::env;
 
+use near_jsonrpc_client::methods::query::RpcQueryResponse;
 use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::{BlockReference, Finality, FunctionArgs};
@@ -18,7 +19,25 @@ use serde_json::from_slice;
 mod models;
 mod routes;
 
-use models::FarmInfo;
+use models::*;
+
+const exchange: &str = "ref-finance-101.testnet";
+const farm: &str = "v2.ref-farming.testnet";
+
+// https://stackoverflow.com/a/36928678
+enum Methods {
+    NumPools,
+    GetPools,
+}
+
+impl Methods {
+    fn value(&self) -> String {
+        match *self {
+            Methods::NumPools => String::from("get_number_of_pools"),
+            Methods::GetPools => String::from("get_pools"),
+        }
+    }
+}
 
 async fn contract_version() -> Result<String, Box<dyn std::error::Error>> {
     let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
@@ -135,17 +154,17 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
         let response = client.call(request).await?;
 
         /* What is response, and how to assign to variable only if query was successful */
-        if let QueryResponseKind::CallResult(result) = response.kind {
-            let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
-            for farm in res {
-                let status = farm.farm_status.clone();
-                let running: String = String::from("Running");
+        // if let QueryResponseKind::CallResult(result) = response.kind {
+        //     let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
+        //     for farm in res {
+        //         let status = farm.farm_status.clone();
+        //         let running: String = String::from("Running");
 
-                if status == running {
-                    farms.push(farm);
-                }
-            }
-        }
+        //         if status == running {
+        //             farms.push(farm);
+        //         }
+        //     }
+        // }
     }
 
     assert!(farms.len() > 0, "ERR_FETCHING_FARMS");
@@ -188,6 +207,67 @@ pub fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
         .expect("failed to execute HSET");
 }
 
+async fn call_view(
+    contract: &str,
+    method_name: String,
+    args: FunctionArgs,
+) -> Result<RpcQueryResponse, Box<dyn std::error::Error>> {
+    let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
+
+    println!("here");
+
+    let request = methods::query::RpcQueryRequest {
+        block_reference: BlockReference::Finality(Finality::Final),
+        request: QueryRequest::CallFunction {
+            account_id: contract.parse()?,
+            method_name: method_name,
+            args: args,
+        },
+    };
+
+    let response = client.call(request).await?;
+    Ok(response)
+}
+
+async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
+    let mut pools: Vec<PoolInfo> = Vec::new();
+    // let token_metadata: HashMap<String, FungibleTokenMetadata> = HashMap::new();
+    // let seeds: Vec<String> = Vec::new();
+
+    let method_name = Methods::NumPools.value();
+
+    // todo: move function args to call_view
+    let args = FunctionArgs::from(json!({}).to_string().into_bytes());
+    let response = call_view(exchange, method_name, args).await?;
+
+    let mut res: u64 = 0;
+    if let QueryResponseKind::CallResult(result) = response.kind {
+        res = from_slice::<u64>(&result.result)?;
+        println!("after result");
+        println!("{}", res);
+    }
+
+    let mut base_index = 0;
+    // todo: move function args to call_view
+    let args = FunctionArgs::from(
+        json!({
+            "from_index": 0u64,
+            "limit": 200u64
+        })
+        .to_string()
+        .into_bytes(),
+    );
+
+    let response = call_view(exchange, Methods::GetPools.value(), args).await?;
+    let mut pools: Vec<PoolInfo> = Vec::new();
+
+    if let QueryResponseKind::CallResult(result) = response.kind {
+        pools = from_slice::<Vec<PoolInfo>>(&result.result)?;
+        println!("{:#?}", pools);
+    }
+    Ok(pools)
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build().mount(
@@ -196,8 +276,9 @@ fn rocket() -> _ {
             routes::get_contract_version,
             routes::list_seeds,
             routes::list_farms,
-            routes::update_farms,
-            routes::get_redis_farms_
+            // routes::update_farms,
+            routes::get_redis_farms_,
+            routes::list_pools,
         ],
     )
 }

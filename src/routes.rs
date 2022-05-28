@@ -42,27 +42,27 @@ pub async fn list_farms() -> Json<Vec<FarmInfo>> {
     Json(farms)
 }
 
-#[get("/redis-update-farms")]
-pub async fn update_farms() -> String {
-    let result = get_farms().await;
+// #[get("/redis-update-farms")]
+// pub async fn update_farms() -> String {
+//     let result = get_farms().await;
 
-    let mut farms: Vec<FarmInfo> = Vec::new();
+//     let mut farms: Vec<FarmInfo> = Vec::new();
 
-    match result {
-        Ok(x) => farms = x,
-        _ => println!("Error!"),
-    }
+//     match result {
+//         Ok(x) => farms = x,
+//         _ => println!("Error!"),
+//     }
 
-    let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
+//     let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
 
-    for farm in farms {
-        driver.insert(farm.farm_id.clone(), farm);
-    }
+//     for farm in farms {
+//         driver.insert(farm.farm_id.clone(), farm);
+//     }
 
-    redis_update_farms(driver);
+//     redis_update_farms(driver);
 
-    String::from("Hello world")
-}
+//     String::from("Hello world")
+// }
 
 #[get("/redis-get-farms")]
 pub async fn get_redis_farms_() -> Json<BTreeMap<String, FarmInfo>> {
@@ -78,4 +78,18 @@ pub async fn get_redis_farms_() -> Json<BTreeMap<String, FarmInfo>> {
         .expect("failed to execute HGETALL");
 
     Json(info)
+}
+
+#[get("/list-pools")]
+pub async fn list_pools() -> Json<Vec<PoolInfo>> {
+    let result = get_pools().await;
+
+    let mut pools: Vec<PoolInfo> = Vec::new();
+
+    match result {
+        Ok(x) => pools = x,
+        _ => println!("Error"),
+    }
+
+    Json(pools)
 }

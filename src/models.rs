@@ -24,3 +24,29 @@ pub struct FarmInfo {
     pub unclaimed_reward: String,
     pub beneficiary_reward: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, RedisJsonValue)]
+pub struct PoolInfo {
+    /// Pool kind.
+    pub pool_kind: String,
+    /// List of tokens in the pool.
+    pub token_account_ids: Vec<String>,
+    /// How much NEAR this contract has.
+    pub amounts: Vec<String>,
+    /// Fee charged for swap.
+    pub total_fee: u32,
+    /// Total number of shares.
+    pub shares_total_supply: String,
+    pub amp: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, RedisJsonValue)]
+pub struct FungibleTokenMetadata {
+    pub spec: String,
+    pub name: String,
+    pub symbol: String,
+    pub icon: Option<String>,
+    pub reference: Option<String>,
+    // pub reference_hash: Option<Base64VecU8>,
+    pub decimals: u8,
+}
