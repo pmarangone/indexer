@@ -3,7 +3,6 @@ extern crate rocket;
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::env;
 
 use near_jsonrpc_client::methods::query::RpcQueryResponse;
 use near_jsonrpc_client::{methods, JsonRpcClient};
@@ -20,6 +19,9 @@ mod models;
 mod routes;
 
 use models::*;
+
+mod redis_impl;
+use redis_impl::*;
 
 const exchange_id: &str = "ref-finance-101.testnet";
 const farm_id: &str = "v2.ref-farming.testnet";
@@ -138,41 +140,6 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
     Ok(farms)
 }
 
-fn connect() -> redis::Connection {
-    //format - host:port
-    let redis_host_name =
-        env::var("REDIS_HOSTNAME").expect("missing environment variable REDIS_HOSTNAME");
-    let redis_password = env::var("REDIS_PASSWORD").unwrap_or_default();
-
-    //if Redis server needs secure connection
-    let uri_scheme = match env::var("IS_TLS") {
-        Ok(_) => "rediss",
-        Err(_) => "redis",
-    };
-
-    let redis_conn_url = format!("{}://:{}@{}", uri_scheme, redis_password, redis_host_name);
-    println!("{}", redis_conn_url);
-
-    redis::Client::open(redis_conn_url)
-        .expect("Invalid connection URL")
-        .get_connection()
-        .expect("failed to connect to Redis")
-}
-
-pub fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
-    let mut conn = connect();
-
-    println!("******* Running HASH::HSET commands *******");
-
-    let prefix = "redis-driver";
-
-    let _: () = redis::cmd("HSET")
-        .arg(format!("{}:{}", prefix, "rust"))
-        .arg(driver)
-        .query(&mut conn)
-        .expect("failed to execute HSET");
-}
-
 async fn call_view(
     contract: &str,
     method_name: String,
@@ -237,8 +204,6 @@ fn rocket() -> _ {
             routes::get_contract_version,
             routes::list_seeds,
             routes::list_farms,
-            routes::update_farms,
-            routes::get_redis_farms_,
             routes::list_pools,
         ],
     )

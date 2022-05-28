@@ -42,29 +42,7 @@ pub async fn list_farms() -> Json<Vec<FarmInfo>> {
     Json(farms)
 }
 
-#[get("/redis-update-farms")]
-pub async fn update_farms() -> String {
-    let result = get_farms().await;
-
-    let mut farms: Vec<FarmInfo> = Vec::new();
-
-    match result {
-        Ok(x) => farms = x,
-        _ => println!("Error!"),
-    }
-
-    let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
-
-    for farm in farms {
-        driver.insert(farm.farm_id.clone(), farm);
-    }
-
-    redis_update_farms(driver);
-
-    String::from("Hello world")
-}
-
-#[get("/redis-get-farms")]
+// #[get("/redis-get-farms")]
 pub async fn get_redis_farms_() -> Json<BTreeMap<String, FarmInfo>> {
     let mut conn = connect();
 
@@ -93,3 +71,7 @@ pub async fn list_pools() -> Json<Vec<PoolInfo>> {
 
     Json(pools)
 }
+
+// TODO: the following method should call every function that create/update redis state
+// #[get("/init-redis")]
+// pub async fn init_redis () {}

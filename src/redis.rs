@@ -1,6 +1,10 @@
 use redis::Commands;
 use std::env;
 
+/***************************
+    Redis example
+****************************/
+
 fn main() {
     basics();
     hash();
