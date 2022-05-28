@@ -21,8 +21,8 @@ mod routes;
 
 use models::*;
 
-const exchange: &str = "ref-finance-101.testnet";
-const farm: &str = "v2.ref-farming.testnet";
+const exchange_id: &str = "ref-finance-101.testnet";
+const farm_id: &str = "v2.ref-farming.testnet";
 
 // https://stackoverflow.com/a/36928678
 enum Methods {
@@ -154,17 +154,17 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
         let response = client.call(request).await?;
 
         /* What is response, and how to assign to variable only if query was successful */
-        // if let QueryResponseKind::CallResult(result) = response.kind {
-        //     let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
-        //     for farm in res {
-        //         let status = farm.farm_status.clone();
-        //         let running: String = String::from("Running");
+        if let QueryResponseKind::CallResult(result) = response.kind {
+            let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
+            for farm in res {
+                let status = farm.farm_status.clone();
+                let running: String = String::from("Running");
 
-        //         if status == running {
-        //             farms.push(farm);
-        //         }
-        //     }
-        // }
+                if status == running {
+                    farms.push(farm);
+                }
+            }
+        }
     }
 
     assert!(farms.len() > 0, "ERR_FETCHING_FARMS");
@@ -238,7 +238,7 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
 
     // todo: move function args to call_view
     let args = FunctionArgs::from(json!({}).to_string().into_bytes());
-    let response = call_view(exchange, method_name, args).await?;
+    let response = call_view(exchange_id, method_name, args).await?;
 
     let mut res: u64 = 0;
     if let QueryResponseKind::CallResult(result) = response.kind {
@@ -258,7 +258,7 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
         .into_bytes(),
     );
 
-    let response = call_view(exchange, Methods::GetPools.value(), args).await?;
+    let response = call_view(exchange_id, Methods::GetPools.value(), args).await?;
     let mut pools: Vec<PoolInfo> = Vec::new();
 
     if let QueryResponseKind::CallResult(result) = response.kind {
