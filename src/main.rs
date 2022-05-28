@@ -33,6 +33,8 @@ enum Methods {
     GetPools,
     ListSeeds,
     ListFarmsBySeeds,
+    WhitelistedTokens,
+    FtMetadata,
 }
 
 impl Methods {
@@ -42,6 +44,8 @@ impl Methods {
             Methods::GetPools => String::from("get_pools"),
             Methods::ListSeeds => String::from("list_seeds"),
             Methods::ListFarmsBySeeds => String::from("list_farms_by_seed"),
+            Methods::WhitelistedTokens => String::from("get_whitelisted_tokens"),
+            Methods::FtMetadata => String::from("ft_metadata"),
         }
     }
 }
@@ -130,6 +134,16 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
         }
     }
 
+    // TODO: this should not be here
+    let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
+
+    for farm in farms.clone() {
+        driver.insert(farm.farm_id.clone(), farm);
+    }
+
+    let _ = redis_update_farms(driver).await;
+    // end
+
     // TODO: improve error handling
     assert!(farms.len() > 0, "ERR_FETCHING_FARMS");
 
@@ -158,8 +172,11 @@ async fn call_view(
 
 async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     let mut pools: Vec<PoolInfo> = Vec::new();
-    // let token_metadata: HashMap<String, FungibleTokenMetadata> = HashMap::new();
-    // let seeds: Vec<String> = Vec::new();
+    let token_metadata: Json<BTreeMap<String, FungibleTokenMetadata>> =
+        get_redis_token_metadata().await;
+    let seeds = internal_farm_seeds().await?;
+
+    assert!(seeds.len() > 0, "ERR");
 
     let method_name = Methods::NumPools.value();
 
@@ -191,13 +208,8 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
             pools.append(&mut batch_pools);
         }
     }
-    /*
-        query whitelisted_tokens
-        update token metadata on redis
-        impl get_token_metadata
 
-    */
-
+    // TODO: add complementary info to pools
     // for pool in pools.iter_mut() {
     //     if true {
     //         pool.farming = Some(true);
@@ -225,16 +237,64 @@ pub async fn internal_farm_seeds() -> Result<Vec<String>, Box<dyn std::error::Er
     Ok(seeds)
 }
 
+pub async fn internal_update_token_metadata(
+    contract: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut is_valid = false;
+
+    let args = FunctionArgs::from(json!({}).to_string().into_bytes());
+    let response = call_view(contract, Methods::FtMetadata.value(), args).await?;
+
+    let mut metadata: FungibleTokenMetadata = FungibleTokenMetadata {
+        spec: "".to_string(),
+        name: "".to_string(),
+        symbol: "".to_string(),
+        icon: Some("".to_string()),
+        reference: Some("".to_string()),
+        reference_hash: Some("".to_string()),
+        decimals: 0u8,
+    };
+
+    if let QueryResponseKind::CallResult(result) = response.kind {
+        metadata = from_slice::<FungibleTokenMetadata>(&result.result)?;
+        is_valid = true;
+    }
+
+    if is_valid {
+        redis_add_token_metadata(contract, metadata).await;
+    }
+
+    Ok(())
+}
+
+pub async fn whitelisted_tokens() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let args = FunctionArgs::from(json!({}).to_string().into_bytes());
+    let response = call_view(exchange_id, Methods::WhitelistedTokens.value(), args).await?;
+
+    let mut tokens: Vec<String> = Vec::new();
+
+    if let QueryResponseKind::CallResult(result) = response.kind {
+        tokens = from_slice::<Vec<String>>(&result.result)?;
+    }
+
+    for token in tokens.iter() {
+        internal_update_token_metadata(token).await;
+    }
+
+    Ok(tokens)
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build().mount(
         "/",
         routes![
             routes::get_contract_version,
-            routes::init_redis,
+            // routes::init_redis,
             routes::list_seeds,
             routes::list_farms,
             routes::list_pools,
+            routes::list_whitelisted_tokens,
         ],
     )
 }

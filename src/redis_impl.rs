@@ -42,8 +42,40 @@ pub async fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
         .expect("failed to execute HSET");
 }
 
+pub async fn redis_add_token_metadata(token: &String, metadata: FungibleTokenMetadata) {
+    let mut conn = connect();
+
+    println!("******* Running HASH::HSET commands *******");
+
+    let prefix = "redis-driver";
+
+    let mut driver: BTreeMap<String, FungibleTokenMetadata> = BTreeMap::new();
+    driver.insert(token.clone(), metadata);
+
+    let _: () = redis::cmd("HSET")
+        .arg(format!("{}:{}", prefix, "metadata"))
+        .arg(driver)
+        .query(&mut conn)
+        .expect("failed to execute HSET");
+}
+
+pub async fn get_redis_token_metadata() -> Json<BTreeMap<String, FungibleTokenMetadata>> {
+    let mut conn = connect();
+
+    println!("******* Running HASH::HGETALL commands *******");
+
+    let prefix = "redis-driver";
+
+    let info: BTreeMap<String, FungibleTokenMetadata> = redis::cmd("HGETALL")
+        .arg(format!("{}:{}", prefix, "metadata"))
+        .query(&mut conn)
+        .expect("failed to execute HGETALL");
+
+    Json(info)
+}
+
 // Store all farms with Running state
-pub async fn update_farms() {
+pub async fn update_farms() -> Result<(), Box<dyn std::error::Error>> {
     let result = get_farms().await;
 
     let mut farms: Vec<FarmInfo> = Vec::new();
@@ -59,7 +91,9 @@ pub async fn update_farms() {
         driver.insert(farm.farm_id.clone(), farm);
     }
 
-    redis_update_farms(driver);
+    redis_update_farms(driver).await;
+
+    Ok(())
 }
 
 pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {

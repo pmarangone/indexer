@@ -56,8 +56,25 @@ pub async fn list_pools() -> Json<Vec<PoolInfo>> {
     Json(pools)
 }
 
-// TODO: the following method should call every function that create/update redis state
-#[get("/init-redis")]
-pub async fn init_redis() {
-    update_farms().await;
+#[get("/whitelisted-tokens")]
+pub async fn list_whitelisted_tokens() -> Json<Vec<String>> {
+    let result = whitelisted_tokens().await;
+
+    let mut tokens: Vec<String> = Vec::new();
+
+    match result {
+        Ok(x) => tokens = x,
+        _ => println!("Error"),
+    }
+
+    Json(tokens)
 }
+
+// TODO: the following method should call every function that create/update redis state
+// #[get("/init-redis")]
+// pub async fn init_redis() -> Json<String> {
+//     // TODO: improve this by collecting string results, like "Ok" and return Vec<String>
+//     let result = get_farms().await;
+
+//     Json("".to_string())
+// }
