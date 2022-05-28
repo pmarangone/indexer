@@ -28,6 +28,8 @@ const farm_id: &str = "v2.ref-farming.testnet";
 enum Methods {
     NumPools,
     GetPools,
+    ListSeeds,
+    ListFarmsBySeeds,
 }
 
 impl Methods {
@@ -35,23 +37,18 @@ impl Methods {
         match *self {
             Methods::NumPools => String::from("get_number_of_pools"),
             Methods::GetPools => String::from("get_pools"),
+            Methods::ListSeeds => String::from("list_seeds"),
+            Methods::ListFarmsBySeeds => String::from("list_farms_by_seed"),
         }
     }
 }
 
 async fn contract_version() -> Result<String, Box<dyn std::error::Error>> {
-    let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
+    let contract = "auto-compounder-001.fluxusfi.testnet";
+    let method_name = "contract_version".to_string();
+    let args = FunctionArgs::from(json!({}).to_string().into_bytes());
 
-    let request = methods::query::RpcQueryRequest {
-        block_reference: BlockReference::Finality(Finality::Final),
-        request: QueryRequest::CallFunction {
-            account_id: "auto-compounder-001.fluxusfi.testnet".parse()?,
-            method_name: "contract_version".to_string(),
-            args: FunctionArgs::from(json!({}).to_string().into_bytes()),
-        },
-    };
-
-    let response = client.call(request).await?;
+    let response = call_view(contract, method_name, args).await?;
 
     let mut res: String = String::from("");
 
@@ -65,28 +62,16 @@ async fn contract_version() -> Result<String, Box<dyn std::error::Error>> {
 }
 
 async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
+    let args = FunctionArgs::from(
+        json!({
+            "from_index": 0u64,
+            "limit": 100u64
+        })
+        .to_string()
+        .into_bytes(),
+    );
 
-    let contract: &str = "v2.ref-farming.testnet";
-    let method_name: String = String::from("list_seeds");
-
-    let request = methods::query::RpcQueryRequest {
-        block_reference: BlockReference::Finality(Finality::Final),
-        request: QueryRequest::CallFunction {
-            account_id: contract.parse()?,
-            method_name: method_name,
-            args: FunctionArgs::from(
-                json!({
-                    "from_index": 0u64,
-                    "limit": 100u64
-                })
-                .to_string()
-                .into_bytes(),
-            ),
-        },
-    };
-
-    let response = client.call(request).await?;
+    let response = call_view(farm_id, Methods::ListSeeds.value(), args).await?;
 
     let mut res: HashMap<String, String> = HashMap::new();
 
@@ -99,28 +84,16 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
 }
 
 async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
-    let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
+    let args = FunctionArgs::from(
+        json!({
+            "from_index": 0u64,
+            "limit": 100u64
+        })
+        .to_string()
+        .into_bytes(),
+    );
 
-    let contract: &str = "v2.ref-farming.testnet";
-    let method_name: String = String::from("list_seeds");
-
-    let request = methods::query::RpcQueryRequest {
-        block_reference: BlockReference::Finality(Finality::Final),
-        request: QueryRequest::CallFunction {
-            account_id: contract.parse()?,
-            method_name: method_name,
-            args: FunctionArgs::from(
-                json!({
-                    "from_index": 0u64,
-                    "limit": 100u64
-                })
-                .to_string()
-                .into_bytes(),
-            ),
-        },
-    };
-
-    let response = client.call(request).await?;
+    let response = call_view(farm_id, Methods::ListSeeds.value(), args).await?;
 
     let mut seeds: HashMap<String, String> = HashMap::new();
 
@@ -129,33 +102,25 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
         println!("{:#?}", seeds);
     }
 
+    // TODO: improve error handling
     assert!(seeds.len() > 0, "ERR_FETCHING_SEEDS");
-
-    let method_name: String = String::from("list_farms_by_seed");
 
     let mut farms: Vec<FarmInfo> = Vec::new();
 
     for (key, _) in &seeds {
-        let request = methods::query::RpcQueryRequest {
-            block_reference: BlockReference::Finality(Finality::Final),
-            request: QueryRequest::CallFunction {
-                account_id: contract.parse()?,
-                method_name: method_name.clone(),
-                args: FunctionArgs::from(
-                    json!({
-                        "seed_id": key,
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            },
-        };
+        let args = FunctionArgs::from(
+            json!({
+                "seed_id": key,
+            })
+            .to_string()
+            .into_bytes(),
+        );
 
-        let response = client.call(request).await?;
+        let response = call_view(farm_id, Methods::ListFarmsBySeeds.value(), args).await?;
 
-        /* What is response, and how to assign to variable only if query was successful */
         if let QueryResponseKind::CallResult(result) = response.kind {
             let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
+            // TODO: refactor in preference of collect
             for farm in res {
                 let status = farm.farm_status.clone();
                 let running: String = String::from("Running");
@@ -167,6 +132,7 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
         }
     }
 
+    // TODO: improve error handling
     assert!(farms.len() > 0, "ERR_FETCHING_FARMS");
 
     Ok(farms)
@@ -214,8 +180,6 @@ async fn call_view(
 ) -> Result<RpcQueryResponse, Box<dyn std::error::Error>> {
     let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
 
-    println!("here");
-
     let request = methods::query::RpcQueryRequest {
         block_reference: BlockReference::Finality(Finality::Final),
         request: QueryRequest::CallFunction {
@@ -243,8 +207,6 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     let mut res: u64 = 0;
     if let QueryResponseKind::CallResult(result) = response.kind {
         res = from_slice::<u64>(&result.result)?;
-        println!("after result");
-        println!("{}", res);
     }
 
     let mut base_index = 0;
@@ -263,7 +225,6 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
 
     if let QueryResponseKind::CallResult(result) = response.kind {
         pools = from_slice::<Vec<PoolInfo>>(&result.result)?;
-        println!("{:#?}", pools);
     }
     Ok(pools)
 }
@@ -276,7 +237,7 @@ fn rocket() -> _ {
             routes::get_contract_version,
             routes::list_seeds,
             routes::list_farms,
-            // routes::update_farms,
+            routes::update_farms,
             routes::get_redis_farms_,
             routes::list_pools,
         ],

@@ -7,7 +7,7 @@ pub struct TokenInfo {
     pub symbol: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, RedisJsonValue)]
+#[derive(Debug, Serialize, Deserialize, RedisJsonValue, Clone)]
 pub struct FarmInfo {
     pub farm_id: String,
     pub farm_kind: String,
