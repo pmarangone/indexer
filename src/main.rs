@@ -210,11 +210,26 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     }
 
     // TODO: add complementary info to pools
-    // for pool in pools.iter_mut() {
-    //     if true {
-    //         pool.farming = Some(true);
-    //     }
-    // }
+    for (idx, pool) in pools.iter_mut().enumerate() {
+        let lpt_id: String = format!("{}@{}", exchange_id, idx);
+        if seeds.contains(&lpt_id) {
+            pool.farming = Some(true);
+        } else {
+            pool.farming = Some(false);
+        }
+
+        let mut symbols: Vec<String> = Vec::new();
+
+        for token in pool.token_account_ids.iter() {
+            if token_metadata.contains_key(token) {
+                let metadata = token_metadata.get(token).unwrap();
+                let symbol: String = metadata.symbol.clone();
+                symbols.push(symbol);
+            }
+        }
+
+        let _ = pool.token_symbols.insert(symbols);
+    }
 
     Ok(pools)
 }
