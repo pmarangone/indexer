@@ -11,7 +11,6 @@ use near_primitives::types::{BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
 
 use derive_redis_json::RedisJsonValue;
-use redis::Commands;
 use rocket::serde::json::{json, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::from_slice;
@@ -24,8 +23,23 @@ use models::*;
 mod redis_impl;
 use redis_impl::*;
 
-const exchange_id: &str = "ref-finance-101.testnet";
-const farm_id: &str = "v2.ref-farming.testnet";
+enum Contracts {
+    RefExchange,
+    RefFarm,
+    FluxusFarm,
+    FluxusSafe,
+}
+
+impl Contracts {
+    fn value(&self) -> &str {
+        match *self {
+            Contracts::RefExchange => "ref-finance-101.testnet",
+            Contracts::RefFarm => "v2.ref-farming.testnet",
+            Contracts::FluxusFarm => "farm101.fluxusfi.testnet",
+            Contracts::FluxusSafe => "safe-004.fluxusfi.testnet",
+        }
+    }
+}
 
 // https://stackoverflow.com/a/36928678
 enum Methods {
@@ -50,24 +64,6 @@ impl Methods {
     }
 }
 
-async fn contract_version() -> Result<String, Box<dyn std::error::Error>> {
-    let contract = "auto-compounder-001.fluxusfi.testnet";
-    let method_name = "contract_version".to_string();
-    let args = FunctionArgs::from(json!({}).to_string().into_bytes());
-
-    let response = call_view(contract, method_name, args).await?;
-
-    let mut res: String = String::from("");
-
-    /* What is response, and how to assign to variable only if query was successful */
-    if let QueryResponseKind::CallResult(result) = response.kind {
-        res = from_slice::<String>(&result.result)?;
-        println!("{:#?}", from_slice::<String>(&result.result)?);
-    }
-
-    Ok(res)
-}
-
 async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let args = FunctionArgs::from(
         json!({
@@ -78,36 +74,23 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
         .into_bytes(),
     );
 
-    let response = call_view(farm_id, Methods::ListSeeds.value(), args).await?;
-
-    let mut res: HashMap<String, String> = HashMap::new();
-
-    /* What is response, and how to assign to variable only if query was successful */
-    if let QueryResponseKind::CallResult(result) = response.kind {
-        res = from_slice::<HashMap<String, String>>(&result.result)?;
-    }
-
-    Ok(res)
-}
-
-async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
-    // TODO: get number of seeds, then get all seeds
-    let args = FunctionArgs::from(
-        json!({
-            "from_index": 0u64,
-            "limit": 100u64
-        })
-        .to_string()
-        .into_bytes(),
-    );
-
-    let response = call_view(farm_id, Methods::ListSeeds.value(), args).await?;
+    let response = call_view(Contracts::RefFarm.value(), Methods::ListSeeds.value(), args).await?;
 
     let mut seeds: HashMap<String, String> = HashMap::new();
 
+    /* What is response, and how to assign to variable only if query was successful */
     if let QueryResponseKind::CallResult(result) = response.kind {
         seeds = from_slice::<HashMap<String, String>>(&result.result)?;
     }
+
+    Ok(seeds)
+}
+
+async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
+    let placeholder: HashMap<String, String> = HashMap::new();
+
+    // TODO: handle this better
+    let seeds = get_seeds().await.unwrap_or_else(|err| placeholder);
 
     // TODO: improve error handling
     assert!(seeds.len() > 0, "ERR_FETCHING_SEEDS");
@@ -123,7 +106,12 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
             .into_bytes(),
         );
 
-        let response = call_view(farm_id, Methods::ListFarmsBySeeds.value(), args).await?;
+        let response = call_view(
+            Contracts::RefFarm.value(),
+            Methods::ListFarmsBySeeds.value(),
+            args,
+        )
+        .await?;
 
         if let QueryResponseKind::CallResult(result) = response.kind {
             let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
@@ -133,16 +121,6 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
             }
         }
     }
-
-    // TODO: this should not be here
-    let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
-
-    for farm in farms.clone() {
-        driver.insert(farm.farm_id.clone(), farm);
-    }
-
-    let _ = redis_update_farms(driver).await;
-    // end
 
     // TODO: improve error handling
     assert!(farms.len() > 0, "ERR_FETCHING_FARMS");
@@ -181,7 +159,7 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     let method_name = Methods::NumPools.value();
 
     let args = FunctionArgs::from(json!({}).to_string().into_bytes());
-    let response = call_view(exchange_id, method_name, args).await?;
+    let response = call_view(Contracts::RefExchange.value(), method_name, args).await?;
 
     let mut num_pools: u64 = 0;
     if let QueryResponseKind::CallResult(result) = response.kind {
@@ -199,7 +177,12 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
             .into_bytes(),
         );
 
-        let response = call_view(exchange_id, Methods::GetPools.value(), args).await?;
+        let response = call_view(
+            Contracts::RefExchange.value(),
+            Methods::GetPools.value(),
+            args,
+        )
+        .await?;
 
         if let QueryResponseKind::CallResult(result) = response.kind {
             let mut batch_pools = from_slice::<Vec<PoolInfo>>(&result.result)?;
@@ -209,9 +192,10 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
         }
     }
 
-    // TODO: add complementary info to pools
     for (idx, pool) in pools.iter_mut().enumerate() {
-        let lpt_id: String = format!("{}@{}", exchange_id, idx);
+        pool.id = Some(idx as u64);
+
+        let lpt_id: String = format!("{}@{}", Contracts::RefExchange.value(), idx);
         if seeds.contains(&lpt_id) {
             pool.farming = Some(true);
         } else {
@@ -282,9 +266,14 @@ pub async fn internal_update_token_metadata(
     Ok(())
 }
 
-pub async fn whitelisted_tokens() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub async fn get_whitelisted_tokens() -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let args = FunctionArgs::from(json!({}).to_string().into_bytes());
-    let response = call_view(exchange_id, Methods::WhitelistedTokens.value(), args).await?;
+    let response = call_view(
+        Contracts::RefExchange.value(),
+        Methods::WhitelistedTokens.value(),
+        args,
+    )
+    .await?;
 
     let mut tokens: Vec<String> = Vec::new();
 
@@ -304,9 +293,7 @@ fn rocket() -> _ {
     rocket::build().mount(
         "/",
         routes![
-            routes::get_contract_version,
-            // routes::init_redis,
-            routes::list_seeds,
+            routes::init_redis,
             routes::list_farms,
             routes::list_pools,
             routes::list_whitelisted_tokens,

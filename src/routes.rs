@@ -1,42 +1,26 @@
 use crate::*;
 
-#[get("/contract-version")]
-pub async fn get_contract_version() -> String {
-    let res = contract_version().await;
+// #[get("/list-seeds")]
+// pub async fn list_seeds() -> Json<HashMap<String, String>> {
+//     let val = get_seeds().await;
 
-    let mut value: String = String::from("Failed");
+//     let mut value: HashMap<String, String> = HashMap::new();
 
-    match res {
-        Ok(x) => value = x,
-        _ => println!("Error"),
-    }
+//     match val {
+//         Ok(x) => value = x,
+//         _ => println!("Error!"),
+//     }
 
-    value
-}
-
-#[get("/list-seeds")]
-pub async fn list_seeds() -> Json<HashMap<String, String>> {
-    let val = get_seeds().await;
-
-    let mut value: HashMap<String, String> = HashMap::new();
-
-    match val {
-        Ok(x) => value = x,
-        _ => println!("Error!"),
-    }
-
-    Json(value)
-}
+//     Json(value)
+// }
 
 #[get("/list-farms")]
 pub async fn list_farms() -> Json<Vec<FarmInfo>> {
-    let result = get_farms().await;
-
+    let res = get_redis_farms().await;
     let mut farms: Vec<FarmInfo> = Vec::new();
 
-    match result {
-        Ok(x) => farms = x,
-        _ => println!("Error!"),
+    for (_, farm) in res.0 {
+        farms.push(farm);
     }
 
     Json(farms)
@@ -44,13 +28,11 @@ pub async fn list_farms() -> Json<Vec<FarmInfo>> {
 
 #[get("/list-pools")]
 pub async fn list_pools() -> Json<Vec<PoolInfo>> {
-    let result = get_pools().await;
-
+    let res = get_redis_pools().await;
     let mut pools: Vec<PoolInfo> = Vec::new();
 
-    match result {
-        Ok(x) => pools = x,
-        _ => println!("Error"),
+    for (_, pool) in res.0 {
+        pools.push(pool);
     }
 
     Json(pools)
@@ -58,7 +40,7 @@ pub async fn list_pools() -> Json<Vec<PoolInfo>> {
 
 #[get("/whitelisted-tokens")]
 pub async fn list_whitelisted_tokens() -> Json<Vec<String>> {
-    let result = whitelisted_tokens().await;
+    let result = get_whitelisted_tokens().await;
 
     let mut tokens: Vec<String> = Vec::new();
 
@@ -70,11 +52,17 @@ pub async fn list_whitelisted_tokens() -> Json<Vec<String>> {
     Json(tokens)
 }
 
-// TODO: the following method should call every function that create/update redis state
-// #[get("/init-redis")]
-// pub async fn init_redis() -> Json<String> {
-//     // TODO: improve this by collecting string results, like "Ok" and return Vec<String>
-//     let result = get_farms().await;
+type Result<T, E = rocket::response::Debug<Box<dyn std::error::Error>>> = std::result::Result<T, E>;
 
-//     Json("".to_string())
-// }
+// TODO: the following method should call every function that create/update redis state
+#[get("/init-redis")]
+pub async fn init_redis() -> Result<()> {
+    // TODO: improve this by collecting string results, like "Ok" and return Vec<String>
+    println!("Redis is starting");
+    let result = redis_update_farms().await.expect("Hello world");
+    println!("Get farms finished");
+    let result = redis_update_pools().await.expect("Hello there");
+    println!("Get pools finished");
+
+    Ok(())
+}

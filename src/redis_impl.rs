@@ -28,8 +28,17 @@ pub fn connect() -> redis::Connection {
         .expect("failed to connect to Redis")
 }
 
-pub async fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
+pub async fn redis_update_farms() -> Result<String, Box<dyn std::error::Error>> {
     let mut conn = connect();
+
+    let res = get_farms().await;
+    let farms = res.unwrap();
+
+    let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
+
+    for farm in farms.clone() {
+        driver.insert(farm.farm_id.clone(), farm);
+    }
 
     println!("******* Running HASH::HSET commands *******");
 
@@ -40,6 +49,33 @@ pub async fn redis_update_farms(driver: BTreeMap<String, FarmInfo>) {
         .arg(driver)
         .query(&mut conn)
         .expect("failed to execute HSET");
+
+    Ok(format!("Hello world"))
+}
+
+pub async fn redis_update_pools() -> Result<String, Box<dyn std::error::Error>> {
+    let mut conn = connect();
+
+    let res = get_pools().await;
+    let pools = res.unwrap();
+
+    let mut driver: BTreeMap<String, PoolInfo> = BTreeMap::new();
+
+    for pool in pools.clone() {
+        driver.insert(pool.id.unwrap().to_string(), pool);
+    }
+
+    println!("******* Running HASH::HSET commands *******");
+
+    let prefix = "redis-driver";
+
+    let _: () = redis::cmd("HSET")
+        .arg(format!("{}:{}", prefix, "pool"))
+        .arg(driver)
+        .query(&mut conn)
+        .expect("failed to execute HSET");
+
+    Ok(format!("Hello there"))
 }
 
 pub async fn redis_add_token_metadata(token: &String, metadata: FungibleTokenMetadata) {
@@ -74,28 +110,6 @@ pub async fn get_redis_token_metadata() -> Json<BTreeMap<String, FungibleTokenMe
     Json(info)
 }
 
-// Store all farms with Running state
-pub async fn update_farms() -> Result<(), Box<dyn std::error::Error>> {
-    let result = get_farms().await;
-
-    let mut farms: Vec<FarmInfo> = Vec::new();
-
-    match result {
-        Ok(x) => farms = x,
-        _ => println!("Error!"),
-    }
-
-    let mut driver: BTreeMap<String, FarmInfo> = BTreeMap::new();
-
-    for farm in farms {
-        driver.insert(farm.farm_id.clone(), farm);
-    }
-
-    redis_update_farms(driver).await;
-
-    Ok(())
-}
-
 pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {
     let mut conn = connect();
 
@@ -105,6 +119,21 @@ pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {
 
     let info: BTreeMap<String, FarmInfo> = redis::cmd("HGETALL")
         .arg(format!("{}:{}", prefix, "rust"))
+        .query(&mut conn)
+        .expect("failed to execute HGETALL");
+
+    Json(info)
+}
+
+pub async fn get_redis_pools() -> Json<BTreeMap<String, PoolInfo>> {
+    let mut conn = connect();
+
+    println!("******* Running HASH::HGETALL commands *******");
+
+    let prefix = "redis-driver";
+
+    let info: BTreeMap<String, PoolInfo> = redis::cmd("HGETALL")
+        .arg(format!("{}:{}", prefix, "pool"))
         .query(&mut conn)
         .expect("failed to execute HGETALL");
 

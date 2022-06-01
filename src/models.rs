@@ -25,8 +25,9 @@ pub struct FarmInfo {
     pub beneficiary_reward: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, RedisJsonValue)]
+#[derive(Debug, Serialize, Deserialize, RedisJsonValue, Clone)]
 pub struct PoolInfo {
+    pub id: Option<u64>,
     /// Pool kind.
     pub pool_kind: String,
     /// List of tokens in the pool.
