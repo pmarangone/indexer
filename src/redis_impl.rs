@@ -78,24 +78,26 @@ pub async fn redis_update_pools() -> Result<String, Box<dyn std::error::Error>> 
     Ok(format!("Hello there"))
 }
 
-pub async fn redis_add_token_metadata(token: &String, metadata: FungibleTokenMetadata) {
+pub async fn redis_update_tokens_metadata() -> Result<String, Box<dyn std::error::Error>> {
     let mut conn = connect();
+
+    let res = get_whitelisted_tokens().await;
+    let tokens_metadata = res.unwrap();
 
     println!("******* Running HASH::HSET commands *******");
 
     let prefix = "redis-driver";
 
-    let mut driver: BTreeMap<String, FungibleTokenMetadata> = BTreeMap::new();
-    driver.insert(token.clone(), metadata);
-
     let _: () = redis::cmd("HSET")
         .arg(format!("{}:{}", prefix, "metadata"))
-        .arg(driver)
+        .arg(tokens_metadata)
         .query(&mut conn)
         .expect("failed to execute HSET");
+
+    Ok(format!("Yoo"))
 }
 
-pub async fn get_redis_token_metadata() -> Json<BTreeMap<String, FungibleTokenMetadata>> {
+pub async fn get_redis_tokens_metadata() -> Json<BTreeMap<String, FungibleTokenMetadata>> {
     let mut conn = connect();
 
     println!("******* Running HASH::HGETALL commands *******");

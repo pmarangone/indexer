@@ -39,14 +39,13 @@ pub async fn list_pools() -> Json<Vec<PoolInfo>> {
 }
 
 #[get("/whitelisted-tokens")]
-pub async fn list_whitelisted_tokens() -> Json<Vec<String>> {
-    let result = get_whitelisted_tokens().await;
+pub async fn list_whitelisted_tokens() -> Json<Vec<FungibleTokenMetadata>> {
+    let res = get_redis_tokens_metadata().await;
 
-    let mut tokens: Vec<String> = Vec::new();
+    let mut tokens: Vec<FungibleTokenMetadata> = Vec::new();
 
-    match result {
-        Ok(x) => tokens = x,
-        _ => println!("Error"),
+    for (_, metadata) in res.0 {
+        tokens.push(metadata);
     }
 
     Json(tokens)
@@ -58,6 +57,8 @@ type Result<T, E = rocket::response::Debug<Box<dyn std::error::Error>>> = std::r
 #[get("/init-redis")]
 pub async fn init_redis() -> Result<()> {
     // TODO: improve this by collecting string results, like "Ok" and return Vec<String>
+    let result = redis_update_tokens_metadata().await.expect("Yoo");
+    println!("Get tokens finished");
     println!("Redis is starting");
     let result = redis_update_farms().await.expect("Hello world");
     println!("Get farms finished");

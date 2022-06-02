@@ -151,7 +151,7 @@ async fn call_view(
 async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     let mut pools: Vec<PoolInfo> = Vec::new();
     let token_metadata: Json<BTreeMap<String, FungibleTokenMetadata>> =
-        get_redis_token_metadata().await;
+        get_redis_tokens_metadata().await;
     let seeds = internal_farm_seeds().await?;
 
     assert!(seeds.len() > 0, "ERR");
@@ -237,36 +237,25 @@ pub async fn internal_farm_seeds() -> Result<Vec<String>, Box<dyn std::error::Er
 }
 
 pub async fn internal_update_token_metadata(
-    contract: &String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut is_valid = false;
+    tokens: &Vec<String>,
+) -> Result<BTreeMap<String, FungibleTokenMetadata>, Box<dyn std::error::Error>> {
+    let mut valid_tokens: BTreeMap<String, FungibleTokenMetadata> = BTreeMap::new();
 
-    let args = FunctionArgs::from(json!({}).to_string().into_bytes());
-    let response = call_view(contract, Methods::FtMetadata.value(), args).await?;
+    for token_contract in tokens.iter() {
+        let args = FunctionArgs::from(json!({}).to_string().into_bytes());
+        let response = call_view(token_contract, Methods::FtMetadata.value(), args).await?;
 
-    let mut metadata: FungibleTokenMetadata = FungibleTokenMetadata {
-        spec: "".to_string(),
-        name: "".to_string(),
-        symbol: "".to_string(),
-        icon: Some("".to_string()),
-        reference: Some("".to_string()),
-        reference_hash: Some("".to_string()),
-        decimals: 0u8,
-    };
-
-    if let QueryResponseKind::CallResult(result) = response.kind {
-        metadata = from_slice::<FungibleTokenMetadata>(&result.result)?;
-        is_valid = true;
+        if let QueryResponseKind::CallResult(result) = response.kind {
+            let metadata = from_slice::<FungibleTokenMetadata>(&result.result)?;
+            valid_tokens.insert(token_contract.clone(), metadata);
+        }
     }
 
-    if is_valid {
-        redis_add_token_metadata(contract, metadata).await;
-    }
-
-    Ok(())
+    Ok(valid_tokens)
 }
 
-pub async fn get_whitelisted_tokens() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub async fn get_whitelisted_tokens(
+) -> Result<BTreeMap<String, FungibleTokenMetadata>, Box<dyn std::error::Error>> {
     let args = FunctionArgs::from(json!({}).to_string().into_bytes());
     let response = call_view(
         Contracts::RefExchange.value(),
@@ -281,11 +270,10 @@ pub async fn get_whitelisted_tokens() -> Result<Vec<String>, Box<dyn std::error:
         tokens = from_slice::<Vec<String>>(&result.result)?;
     }
 
-    for token in tokens.iter() {
-        internal_update_token_metadata(token).await;
-    }
+    let res = internal_update_token_metadata(&tokens).await;
+    let valid_tokens = res.unwrap();
 
-    Ok(tokens)
+    Ok(valid_tokens)
 }
 
 #[launch]
