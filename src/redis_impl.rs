@@ -78,11 +78,17 @@ pub async fn redis_update_pools() -> Result<String, Box<dyn std::error::Error>> 
     Ok(format!("Hello there"))
 }
 
-pub async fn redis_update_tokens_metadata() -> Result<String, Box<dyn std::error::Error>> {
+pub async fn redis_update_tokens_metadata(
+    tokens: Option<BTreeMap<String, FungibleTokenMetadata>>,
+) -> Result<String, Box<dyn std::error::Error>> {
     let mut conn = connect();
 
-    let res = get_whitelisted_tokens().await;
-    let tokens_metadata = res.unwrap();
+    let tokens_metadata = if tokens.is_some() {
+        tokens.unwrap()
+    } else {
+        let res = get_whitelisted_tokens().await;
+        res.unwrap()
+    };
 
     println!("******* Running HASH::HSET commands *******");
 

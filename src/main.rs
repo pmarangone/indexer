@@ -209,6 +209,17 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
                 let metadata = token_metadata.get(token).unwrap();
                 let symbol: String = metadata.symbol.clone();
                 symbols.push(symbol);
+            } else {
+                let vec = &vec![token.clone()];
+                let res = internal_update_token_metadata(vec).await;
+
+                if res.is_ok() {
+                    let metadata = res.unwrap();
+                    let symbol = metadata.get(token).unwrap().symbol.clone();
+                    symbols.push(symbol);
+
+                    redis_update_tokens_metadata(Some(metadata));
+                }
             }
         }
 

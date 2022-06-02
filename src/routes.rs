@@ -57,7 +57,7 @@ type Result<T, E = rocket::response::Debug<Box<dyn std::error::Error>>> = std::r
 #[get("/init-redis")]
 pub async fn init_redis() -> Result<()> {
     // TODO: improve this by collecting string results, like "Ok" and return Vec<String>
-    let result = redis_update_tokens_metadata().await.expect("Yoo");
+    let result = redis_update_tokens_metadata(None).await.expect("Yoo");
     println!("Get tokens finished");
     println!("Redis is starting");
     let result = redis_update_farms().await.expect("Hello world");
