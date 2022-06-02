@@ -78,7 +78,6 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
 
     let mut seeds: HashMap<String, String> = HashMap::new();
 
-    /* What is response, and how to assign to variable only if query was successful */
     if let QueryResponseKind::CallResult(result) = response.kind {
         seeds = from_slice::<HashMap<String, String>>(&result.result)?;
     }
@@ -89,7 +88,7 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
 async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
     let placeholder: HashMap<String, String> = HashMap::new();
 
-    // TODO: handle this better
+    // TODO: handle error better
     let seeds = get_seeds().await.unwrap_or_else(|err| placeholder);
 
     // TODO: improve error handling

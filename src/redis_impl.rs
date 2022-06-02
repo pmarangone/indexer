@@ -45,12 +45,12 @@ pub async fn redis_update_farms() -> Result<String, Box<dyn std::error::Error>> 
     let prefix = "redis-driver";
 
     let _: () = redis::cmd("HSET")
-        .arg(format!("{}:{}", prefix, "rust"))
+        .arg(format!("{}:{}", prefix, "farms"))
         .arg(driver)
         .query(&mut conn)
         .expect("failed to execute HSET");
 
-    Ok(format!("Hello world"))
+    Ok(format!("Done"))
 }
 
 pub async fn redis_update_pools() -> Result<String, Box<dyn std::error::Error>> {
@@ -75,7 +75,7 @@ pub async fn redis_update_pools() -> Result<String, Box<dyn std::error::Error>> 
         .query(&mut conn)
         .expect("failed to execute HSET");
 
-    Ok(format!("Hello there"))
+    Ok(format!("Done"))
 }
 
 pub async fn redis_update_tokens_metadata(
@@ -100,7 +100,7 @@ pub async fn redis_update_tokens_metadata(
         .query(&mut conn)
         .expect("failed to execute HSET");
 
-    Ok(format!("Yoo"))
+    Ok(format!("Done"))
 }
 
 pub async fn get_redis_tokens_metadata() -> Json<BTreeMap<String, FungibleTokenMetadata>> {
@@ -126,7 +126,7 @@ pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {
     let prefix = "redis-driver";
 
     let info: BTreeMap<String, FarmInfo> = redis::cmd("HGETALL")
-        .arg(format!("{}:{}", prefix, "rust"))
+        .arg(format!("{}:{}", prefix, "farms"))
         .query(&mut conn)
         .expect("failed to execute HGETALL");
 
