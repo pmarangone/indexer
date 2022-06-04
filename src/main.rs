@@ -19,10 +19,12 @@ mod consts;
 mod models;
 mod redis_impl;
 mod routes;
+mod utils;
 
 use consts::*;
 use models::*;
 use redis_impl::*;
+use utils::*;
 
 async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let args = FunctionArgs::from(
@@ -46,13 +48,12 @@ async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Erro
 }
 
 async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
-    let placeholder: HashMap<String, String> = HashMap::new();
+    let seeds = get_seeds().await.unwrap_or_default();
 
-    // TODO: handle error better
-    let seeds = get_seeds().await.unwrap_or_else(|err| placeholder);
-
-    // TODO: improve error handling
-    assert!(seeds.len() > 0, "ERR_FETCHING_SEEDS");
+    if seeds.is_empty() {
+        println!("ERR_FETCHING_SEEDS");
+        return Ok(vec![]);
+    }
 
     let mut farms: Vec<FarmInfo> = Vec::new();
 
@@ -74,46 +75,25 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
 
         if let QueryResponseKind::CallResult(result) = response.kind {
             let res: Vec<FarmInfo> = from_slice::<Vec<FarmInfo>>(&result.result)?;
-            // TODO: refactor in preference of collect
-            for farm in res {
-                farms.push(farm);
-            }
+            farms.extend(res);
         }
     }
 
-    // TODO: improve error handling
-    assert!(farms.len() > 0, "ERR_FETCHING_FARMS");
+    if farms.is_empty() {
+        println!("ERR_FETCHING_FARMS");
+    }
 
     Ok(farms)
 }
 
-async fn call_view(
-    contract: &str,
-    method_name: String,
-    args: FunctionArgs,
-) -> Result<RpcQueryResponse, Box<dyn std::error::Error>> {
-    let client = JsonRpcClient::connect("https://rpc.testnet.near.org");
-
-    let request = methods::query::RpcQueryRequest {
-        block_reference: BlockReference::Finality(Finality::Final),
-        request: QueryRequest::CallFunction {
-            account_id: contract.parse()?,
-            method_name: method_name,
-            args: args,
-        },
-    };
-
-    let response = client.call(request).await?;
-    Ok(response)
-}
-
 async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     let mut pools: Vec<PoolInfo> = Vec::new();
-    let token_metadata: Json<BTreeMap<String, FungibleTokenMetadata>> =
-        get_redis_tokens_metadata().await;
-    let seeds = internal_farm_seeds().await?;
+    let token_metadata: BTreeMap<String, FungibleTokenMetadata> = get_redis_tokens_metadata().await;
+    let seeds = internal_farm_seeds().await.unwrap_or_default();
 
-    assert!(seeds.len() > 0, "ERR");
+    if seeds.is_empty() {
+        println!("ERR_FETCHING_SEEDS");
+    }
 
     let method_name = Methods::NumPools.value();
 
@@ -170,10 +150,11 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
                 symbols.push(symbol);
             } else {
                 let vec = &vec![token.clone()];
-                let res = internal_update_token_metadata(vec).await;
+                let metadata = internal_update_token_metadata(vec)
+                    .await
+                    .unwrap_or_default();
 
-                if res.is_ok() {
-                    let metadata = res.unwrap();
+                if !metadata.is_empty() {
                     let symbol = metadata.get(token).unwrap().symbol.clone();
                     symbols.push(symbol);
 
@@ -240,8 +221,9 @@ pub async fn get_whitelisted_tokens(
         tokens = from_slice::<Vec<String>>(&result.result)?;
     }
 
-    let res = internal_update_token_metadata(&tokens).await;
-    let valid_tokens = res.unwrap();
+    let valid_tokens = internal_update_token_metadata(&tokens)
+        .await
+        .unwrap_or_default();
 
     Ok(valid_tokens)
 }
@@ -251,6 +233,7 @@ fn rocket() -> _ {
     rocket::build().mount(
         "/",
         routes![
+            routes::root,
             routes::init_redis,
             routes::list_farms,
             routes::list_pools,

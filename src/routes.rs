@@ -1,38 +1,38 @@
 use crate::*;
 
+#[get("/")]
+pub async fn root() -> String {
+    format!("Hello world")
+}
+
 #[get("/list-farms")]
 pub async fn list_farms() -> Json<Vec<FarmInfo>> {
-    let res = get_redis_farms().await;
-    let mut farms: Vec<FarmInfo> = Vec::new();
+    let farms_map = get_redis_farms().await;
 
-    for (_, farm) in res.0 {
-        farms.push(farm);
-    }
+    let farms = farms_map.values().cloned().collect();
 
     Json(farms)
 }
 
 #[get("/list-pools")]
 pub async fn list_pools() -> Json<Vec<PoolInfo>> {
-    let res = get_redis_pools().await;
-    let mut pools: Vec<PoolInfo> = Vec::new();
+    let pools_map = get_redis_pools().await;
 
-    for (_, pool) in res.0 {
-        pools.push(pool);
-    }
+    let pools = pools_map.values().cloned().collect();
 
     Json(pools)
 }
 
 #[get("/whitelisted-tokens")]
 pub async fn list_whitelisted_tokens() -> Json<Vec<FungibleTokenMetadata>> {
-    let res = get_redis_tokens_metadata().await;
+    let tokens_map = get_redis_tokens_metadata().await;
 
-    let mut tokens: Vec<FungibleTokenMetadata> = Vec::new();
-
-    for (_, metadata) in res.0 {
-        tokens.push(metadata);
+    if tokens_map.is_empty() {
+        println!("ERR_FETCHING_TOKENS_METADATA");
+        return Json(vec![]);
     }
+
+    let tokens = tokens_map.values().cloned().collect();
 
     Json(tokens)
 }

@@ -103,7 +103,7 @@ pub async fn redis_update_tokens_metadata(
     Ok(format!("Done"))
 }
 
-pub async fn get_redis_tokens_metadata() -> Json<BTreeMap<String, FungibleTokenMetadata>> {
+pub async fn get_redis_tokens_metadata() -> BTreeMap<String, FungibleTokenMetadata> {
     let mut conn = connect();
 
     println!("******* Running HASH::HGETALL commands *******");
@@ -115,10 +115,10 @@ pub async fn get_redis_tokens_metadata() -> Json<BTreeMap<String, FungibleTokenM
         .query(&mut conn)
         .expect("failed to execute HGETALL");
 
-    Json(info)
+    info
 }
 
-pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {
+pub async fn get_redis_farms() -> BTreeMap<String, FarmInfo> {
     let mut conn = connect();
 
     println!("******* Running HASH::HGETALL commands *******");
@@ -130,10 +130,10 @@ pub async fn get_redis_farms() -> Json<BTreeMap<String, FarmInfo>> {
         .query(&mut conn)
         .expect("failed to execute HGETALL");
 
-    Json(info)
+    info
 }
 
-pub async fn get_redis_pools() -> Json<BTreeMap<String, PoolInfo>> {
+pub async fn get_redis_pools() -> BTreeMap<String, PoolInfo> {
     let mut conn = connect();
 
     println!("******* Running HASH::HGETALL commands *******");
@@ -145,5 +145,5 @@ pub async fn get_redis_pools() -> Json<BTreeMap<String, PoolInfo>> {
         .query(&mut conn)
         .expect("failed to execute HGETALL");
 
-    Json(info)
+    info
 }

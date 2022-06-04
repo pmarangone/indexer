@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, RedisJsonValue, Clone)]
 pub struct TokenInfo {
     pub decimal: u8,
     pub price: String,
@@ -43,7 +43,7 @@ pub struct PoolInfo {
     pub token_symbols: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, RedisJsonValue)]
+#[derive(Debug, Serialize, Deserialize, RedisJsonValue, Clone)]
 pub struct FungibleTokenMetadata {
     pub spec: String,
     pub name: String,
