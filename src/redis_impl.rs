@@ -40,8 +40,6 @@ pub async fn redis_update_farms() -> Result<String, Box<dyn std::error::Error>> 
         driver.insert(farm.farm_id.clone(), farm);
     }
 
-    println!("******* Running HASH::HSET commands *******");
-
     let prefix = "redis-driver";
 
     let _: () = redis::cmd("HSET")
@@ -64,8 +62,6 @@ pub async fn redis_update_pools() -> Result<String, Box<dyn std::error::Error>> 
     for pool in pools.clone() {
         driver.insert(pool.id.unwrap().to_string(), pool);
     }
-
-    println!("******* Running HASH::HSET commands *******");
 
     let prefix = "redis-driver";
 
@@ -90,8 +86,6 @@ pub async fn redis_update_tokens_metadata(
         res.unwrap()
     };
 
-    println!("******* Running HASH::HSET commands *******");
-
     let prefix = "redis-driver";
 
     let _: () = redis::cmd("HSET")
@@ -106,8 +100,6 @@ pub async fn redis_update_tokens_metadata(
 pub async fn get_redis_tokens_metadata() -> BTreeMap<String, FungibleTokenMetadata> {
     let mut conn = connect();
 
-    println!("******* Running HASH::HGETALL commands *******");
-
     let prefix = "redis-driver";
 
     let info: BTreeMap<String, FungibleTokenMetadata> = redis::cmd("HGETALL")
@@ -121,8 +113,6 @@ pub async fn get_redis_tokens_metadata() -> BTreeMap<String, FungibleTokenMetada
 pub async fn get_redis_farms() -> BTreeMap<String, FarmInfo> {
     let mut conn = connect();
 
-    println!("******* Running HASH::HGETALL commands *******");
-
     let prefix = "redis-driver";
 
     let info: BTreeMap<String, FarmInfo> = redis::cmd("HGETALL")
@@ -135,8 +125,6 @@ pub async fn get_redis_farms() -> BTreeMap<String, FarmInfo> {
 
 pub async fn get_redis_pools() -> BTreeMap<String, PoolInfo> {
     let mut conn = connect();
-
-    println!("******* Running HASH::HGETALL commands *******");
 
     let prefix = "redis-driver";
 
