@@ -17,12 +17,14 @@ use serde_json::from_slice;
 
 mod consts;
 mod models;
+mod mongo_impl;
 mod redis_impl;
 mod routes;
 mod utils;
 
 use consts::*;
 use models::*;
+use mongo_impl::*;
 use redis_impl::*;
 use utils::*;
 
@@ -88,7 +90,8 @@ async fn get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Error>> {
 
 async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
     let mut pools: Vec<PoolInfo> = Vec::new();
-    let token_metadata: BTreeMap<String, FungibleTokenMetadata> = get_redis_tokens_metadata().await;
+    let token_metadata: BTreeMap<String, FungibleTokenMetadata> =
+        get_whitelisted_tokens().await.unwrap_or_default();
     let seeds = internal_farm_seeds().await.unwrap_or_default();
 
     if seeds.is_empty() {
@@ -158,7 +161,7 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
                     let symbol = metadata.get(token).unwrap().symbol.clone();
                     symbols.push(symbol);
 
-                    redis_update_tokens_metadata(Some(metadata));
+                    // redis_update_tokens_metadata(Some(metadata)); // preserve updated value
                 }
             }
         }
@@ -170,10 +173,10 @@ async fn get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Error>> {
 }
 
 pub async fn internal_farm_seeds() -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let farms = get_redis_farms().await;
+    let farms = get_farms().await.unwrap_or_default();
     let mut seeds: Vec<String> = Vec::new();
 
-    for (_, farm) in farms.iter() {
+    for farm in farms.iter() {
         let status = &farm.farm_status;
         let total_reward: u128 = farm.total_reward.parse::<u128>().unwrap();
         let claimed_reward: u128 = farm.claimed_reward.parse::<u128>().unwrap();
@@ -235,9 +238,13 @@ fn rocket() -> _ {
         routes![
             routes::root,
             routes::init_redis,
+            routes::init_mongo,
             routes::list_farms,
             routes::list_pools,
             routes::list_whitelisted_tokens,
+            routes::mongo_list_farms,
+            routes::mongo_list_pools,
+            routes::mongo_list_whitelisted_tokens,
         ],
     )
 }
