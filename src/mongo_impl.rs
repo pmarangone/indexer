@@ -22,7 +22,7 @@ pub async fn mongo_add_tokens() -> Result<String, Box<dyn std::error::Error>> {
     let client = mongo_connection().await.unwrap();
 
     // Get a handle to a database.
-    let db = client.database("mydb3");
+    let db = client.database("db");
 
     // Get a handle to a collection
     let typed_collection = db.collection::<FungibleTokenMetadata>("ft_metadata");
@@ -45,7 +45,7 @@ pub async fn mongo_add_farms() -> Result<String, Box<dyn std::error::Error>> {
     let client = mongo_connection().await.unwrap();
 
     // Get a handle to a database.
-    let db = client.database("mydb3");
+    let db = client.database("db");
 
     // Get a handle to a collection
     let typed_collection = db.collection::<FarmInfo>("farms");
@@ -61,7 +61,7 @@ pub async fn mongo_add_pools() -> Result<String, Box<dyn std::error::Error>> {
     let client = mongo_connection().await.unwrap();
 
     // Get a handle to a database.
-    let db = client.database("mydb3");
+    let db = client.database("db");
 
     // Get a handle to a collection
     let typed_collection = db.collection::<PoolInfo>("pools");
@@ -78,7 +78,7 @@ pub async fn mongo_get_tokens_metadata(
     let client = mongo_connection().await.unwrap();
 
     // Get a handle to a database.
-    let db = client.database("mydb3");
+    let db = client.database("db");
 
     // Get a handle to a collection
     let typed_collection = db.collection::<FungibleTokenMetadata>("ft_metadata");
@@ -101,7 +101,7 @@ pub async fn mongo_get_farms() -> Result<Vec<FarmInfo>, Box<dyn std::error::Erro
     let client = mongo_connection().await.unwrap();
 
     // Get a handle to a database.
-    let db = client.database("mydb3");
+    let db = client.database("db");
 
     // Get a handle to a collection
     let typed_collection = db.collection::<FarmInfo>("farms");
@@ -123,7 +123,7 @@ pub async fn mongo_get_pools() -> Result<Vec<PoolInfo>, Box<dyn std::error::Erro
     let client = mongo_connection().await.unwrap();
 
     // Get a handle to a database.
-    let db = client.database("mydb3");
+    let db = client.database("db");
 
     // Get a handle to a collection
     let typed_collection = db.collection::<PoolInfo>("pools");
