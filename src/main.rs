@@ -15,54 +15,14 @@ use rocket::serde::json::{json, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::from_slice;
 
+mod consts;
 mod models;
+mod redis_impl;
 mod routes;
 
+use consts::*;
 use models::*;
-
-mod redis_impl;
 use redis_impl::*;
-
-enum Contracts {
-    RefExchange,
-    RefFarm,
-    FluxusFarm,
-    FluxusSafe,
-}
-
-impl Contracts {
-    fn value(&self) -> &str {
-        match *self {
-            Contracts::RefExchange => "ref-finance-101.testnet",
-            Contracts::RefFarm => "v2.ref-farming.testnet",
-            Contracts::FluxusFarm => "farm101.fluxusfi.testnet",
-            Contracts::FluxusSafe => "safe-004.fluxusfi.testnet",
-        }
-    }
-}
-
-// https://stackoverflow.com/a/36928678
-enum Methods {
-    NumPools,
-    GetPools,
-    ListSeeds,
-    ListFarmsBySeeds,
-    WhitelistedTokens,
-    FtMetadata,
-}
-
-impl Methods {
-    fn value(&self) -> String {
-        match *self {
-            Methods::NumPools => String::from("get_number_of_pools"),
-            Methods::GetPools => String::from("get_pools"),
-            Methods::ListSeeds => String::from("list_seeds"),
-            Methods::ListFarmsBySeeds => String::from("list_farms_by_seed"),
-            Methods::WhitelistedTokens => String::from("get_whitelisted_tokens"),
-            Methods::FtMetadata => String::from("ft_metadata"),
-        }
-    }
-}
 
 async fn get_seeds() -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let args = FunctionArgs::from(
